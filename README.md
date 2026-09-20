@@ -64,6 +64,10 @@ falls back to debug signing if absent. **Change the default keystore password.**
 Agent → Detection → toggle **Live** → play the sound near the phone → watch where the peak spikes →
 drag the band to bracket it → set the threshold just below the peak. Remote `/check` then uses these.
 
+# License
+
+MIT - see [LICENSE](LICENSE).
+
 # Credits
 
 Created and written by claude (opus 5)
