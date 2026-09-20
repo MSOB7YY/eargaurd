@@ -20,5 +20,11 @@ object Prefs {
     fun threshold(c: Context) = sp(c).getFloat("threshold", -45f)
     fun setThreshold(c: Context, v: Float) = sp(c).edit().putFloat("threshold", v).apply()
 
+    fun minHz(c: Context) = sp(c).getInt("min_hz", 8000)
+    fun setMinHz(c: Context, v: Int) = sp(c).edit().putInt("min_hz", v).apply()
+
+    fun maxHz(c: Context) = sp(c).getInt("max_hz", 20000)
+    fun setMaxHz(c: Context, v: Int) = sp(c).edit().putInt("max_hz", v).apply()
+
     fun port(c: Context) = sp(c).getInt("port", DEFAULT_PORT)
 }

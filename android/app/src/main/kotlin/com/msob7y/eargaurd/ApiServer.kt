@@ -3,6 +3,7 @@ package com.msob7y.eargaurd
 import android.content.Context
 import android.os.Build
 import fi.iki.elonen.NanoHTTPD
+import org.json.JSONArray
 import org.json.JSONObject
 
 class ApiServer(
@@ -47,30 +48,43 @@ class ApiServer(
                     json(status())
                 }
 
+                "/band" -> {
+                    param(session, "minHz")?.toIntOrNull()?.let { Prefs.setMinHz(context, it) }
+                    param(session, "maxHz")?.toIntOrNull()?.let { Prefs.setMaxHz(context, it) }
+                    json(status())
+                }
+
                 "/warn" -> {
                     engine.playWarning()
                     json(JSONObject().put("warned", true))
                 }
 
+                "/analyze" -> {
+                    val a = EarGuardService.instance?.analyze()
+                    if (a == null) {
+                        json(JSONObject().put("micReady", false))
+                    } else {
+                        json(analysisJson(a).put("micReady", true))
+                    }
+                }
+
                 "/check" -> {
                     val svc = EarGuardService.instance
+                    val threshold = Prefs.threshold(context).toDouble()
                     if (svc == null || !svc.micReady) {
                         json(
                             JSONObject()
                                 .put("band10k", -999.0)
-                                .put("threshold", Prefs.threshold(context).toDouble())
+                                .put("threshold", threshold)
                                 .put("warned", false)
                                 .put("micReady", false),
                         )
                     } else {
-                        val band = engine.captureBand10kDbfs()
-                        val threshold = Prefs.threshold(context).toDouble()
-                        val warned = band > threshold && band > -900
-                        if (warned) engine.playWarning()
+                        val (band, thr, warned) = svc.checkAndWarn()
                         json(
                             JSONObject()
                                 .put("band10k", round2(band))
-                                .put("threshold", threshold)
+                                .put("threshold", thr)
                                 .put("warned", warned)
                                 .put("micReady", true),
                         )
@@ -99,7 +113,18 @@ class ApiServer(
         .put("cap", Prefs.cap(context))
         .put("capEnabled", Prefs.capEnabled(context))
         .put("threshold", Prefs.threshold(context).toDouble())
+        .put("minHz", Prefs.minHz(context))
+        .put("maxHz", Prefs.maxHz(context))
         .put("micReady", EarGuardService.instance?.micReady ?: false)
+
+    private fun analysisJson(a: Analysis): JSONObject = JSONObject()
+        .put("sampleRate", a.sampleRate)
+        .put("binHz", a.binHz)
+        .put("bars", JSONArray(a.bars.map { round2(it) }))
+        .put("peakHz", round2(a.peakHz))
+        .put("peakDb", round2(a.peakDb))
+        .put("bandPeakHz", round2(a.bandPeakHz))
+        .put("bandPeakDb", round2(a.bandPeakDb))
 
     private fun json(o: JSONObject): Response =
         newFixedLengthResponse(Response.Status.OK, "application/json", o.toString())

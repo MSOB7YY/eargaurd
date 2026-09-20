@@ -33,6 +33,12 @@ class AgentBridge {
   static Future<Map<String, dynamic>> setThreshold(double value) async =>
       _map(await _c.invokeMethod('setThreshold', {'value': value}));
 
+  static Future<Map<String, dynamic>> setBand(int minHz, int maxHz) async =>
+      _map(await _c.invokeMethod('setBand', {'minHz': minHz, 'maxHz': maxHz}));
+
+  static Future<Map<String, dynamic>> analyze(int minHz, int maxHz) async =>
+      _map(await _c.invokeMethod('analyze', {'minHz': minHz, 'maxHz': maxHz}));
+
   static Future<void> warn() async => _c.invokeMethod('warn');
 
   static Future<Map<String, dynamic>> check() async =>

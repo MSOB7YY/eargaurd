@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../models/analysis.dart';
 import '../models/device.dart';
 
 class AgentApi {
@@ -56,8 +57,22 @@ class AgentApi {
     return _statusFrom(r);
   }
 
+  Future<DeviceStatus> setBand(int minHz, int maxHz) async {
+    final r = await http
+        .post(Uri.parse('$base/band?minHz=$minHz&maxHz=$maxHz'))
+        .timeout(_timeout);
+    return _statusFrom(r);
+  }
+
   Future<void> warn() async {
     await http.post(Uri.parse('$base/warn')).timeout(_timeout);
+  }
+
+  Future<Analysis> analyze() async {
+    final r = await http
+        .post(Uri.parse('$base/analyze'))
+        .timeout(_checkTimeout);
+    return Analysis.fromMap(jsonDecode(r.body) as Map<String, dynamic>);
   }
 
   Future<Map<String, dynamic>> check() async {

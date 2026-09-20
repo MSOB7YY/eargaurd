@@ -5,6 +5,8 @@ class DeviceStatus {
     required this.cap,
     required this.capEnabled,
     required this.threshold,
+    required this.minHz,
+    required this.maxHz,
     required this.micReady,
     this.name,
   });
@@ -14,6 +16,8 @@ class DeviceStatus {
   final int cap;
   final bool capEnabled;
   final double threshold;
+  final int minHz;
+  final int maxHz;
   final bool micReady;
   final String? name;
 
@@ -23,9 +27,24 @@ class DeviceStatus {
     cap: (j['cap'] ?? 8) as int,
     capEnabled: (j['capEnabled'] ?? false) as bool,
     threshold: ((j['threshold'] ?? -45) as num).toDouble(),
+    minHz: (j['minHz'] ?? 8000) as int,
+    maxHz: (j['maxHz'] ?? 20000) as int,
     micReady: (j['micReady'] ?? false) as bool,
     name: j['name'] as String?,
   );
+
+  DeviceStatus copyWith({int? volume, int? cap, bool? capEnabled}) =>
+      DeviceStatus(
+        volume: volume ?? this.volume,
+        max: max,
+        cap: cap ?? this.cap,
+        capEnabled: capEnabled ?? this.capEnabled,
+        threshold: threshold,
+        minHz: minHz,
+        maxHz: maxHz,
+        micReady: micReady,
+        name: name,
+      );
 }
 
 class Device {

@@ -1,16 +1,20 @@
 package com.msob7y.eargaurd
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import java.util.concurrent.Executors
 
 class MainActivity : FlutterActivity() {
 
     private val channelName = "eargaurd/agent"
+    private val bg = Executors.newSingleThreadExecutor()
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -63,6 +67,33 @@ class MainActivity : FlutterActivity() {
                         result.success(statusMap(engine))
                     }
 
+                    "setBand" -> {
+                        Prefs.setMinHz(this, call.argument<Int>("minHz") ?: 8000)
+                        Prefs.setMaxHz(this, call.argument<Int>("maxHz") ?: 20000)
+                        result.success(statusMap(engine))
+                    }
+
+                    "analyze" -> {
+                        val minHz = call.argument<Int>("minHz") ?: Prefs.minHz(this)
+                        val maxHz = call.argument<Int>("maxHz") ?: Prefs.maxHz(this)
+                        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) !=
+                            PackageManager.PERMISSION_GRANTED
+                        ) {
+                            result.error("no_mic", "Microphone permission not granted", null)
+                        } else {
+                            bg.execute {
+                                val a = engine.analyze(minHz, maxHz)
+                                runOnUiThread {
+                                    if (a == null) {
+                                        result.error("analyze_failed", "Could not open microphone", null)
+                                    } else {
+                                        result.success(a.toMap())
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     "warn" -> {
                         engine.playWarning()
                         result.success(true)
@@ -105,6 +136,8 @@ class MainActivity : FlutterActivity() {
         "cap" to Prefs.cap(this),
         "capEnabled" to Prefs.capEnabled(this),
         "threshold" to Prefs.threshold(this).toDouble(),
+        "minHz" to Prefs.minHz(this),
+        "maxHz" to Prefs.maxHz(this),
         "running" to EarGuardService.isRunning(),
         "micReady" to (EarGuardService.instance?.micReady ?: false),
     )

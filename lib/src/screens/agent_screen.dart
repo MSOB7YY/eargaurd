@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../native/agent_bridge.dart';
+import '../widgets/live_spectrum.dart';
 
 class AgentScreen extends StatefulWidget {
   const AgentScreen({super.key});
@@ -19,6 +20,8 @@ class _AgentScreenState extends State<AgentScreen> {
   int _cap = 8;
   int _max = 15;
   double _threshold = -45;
+  int _minHz = 8000;
+  int _maxHz = 20000;
   final int _port = 8723;
   List<String> _ips = [];
   bool _busy = false;
@@ -33,7 +36,6 @@ class _AgentScreenState extends State<AgentScreen> {
     _ips = await _localIps();
     await _refresh();
     if (_running) {
-      // Re-assert foreground mic type after a possible reboot/app relaunch.
       await AgentBridge.startAgent();
       await _refresh();
     }
@@ -49,6 +51,8 @@ class _AgentScreenState extends State<AgentScreen> {
       _cap = (s['cap'] ?? 8) as int;
       _max = (s['max'] ?? 15) as int;
       _threshold = ((s['threshold'] ?? -45) as num).toDouble();
+      _minHz = (s['minHz'] ?? 8000) as int;
+      _maxHz = (s['maxHz'] ?? 20000) as int;
       _micReady = (s['micReady'] ?? false) as bool;
     });
   }
@@ -108,156 +112,9 @@ class _AgentScreenState extends State<AgentScreen> {
             ),
           ),
           if (_running) ...[
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Reachable at', style: theme.textTheme.labelLarge),
-                    const SizedBox(height: 4),
-                    if (_ips.isEmpty)
-                      const Text('No network address')
-                    else
-                      ..._ips.map(
-                        (ip) => SelectableText(
-                          'http://$ip:$_port',
-                          style: theme.textTheme.bodyMedium,
-                        ),
-                      ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Icon(
-                          _micReady ? Icons.mic : Icons.mic_off,
-                          size: 18,
-                          color: _micReady
-                              ? Colors.green
-                              : theme.colorScheme.error,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          _micReady
-                              ? 'Mic ready for remote checks'
-                              : 'Mic not ready — toggle agent while app is open',
-                          style: theme.textTheme.bodySmall,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            Card(
-              child: Column(
-                children: [
-                  SwitchListTile(
-                    title: const Text('Auto-cap volume'),
-                    subtitle: Text('Ceiling: $_cap / $_max'),
-                    value: _capEnabled,
-                    onChanged: _busy
-                        ? null
-                        : (v) async {
-                            await AgentBridge.setCapEnabled(v);
-                            await _refresh();
-                          },
-                  ),
-                  if (_capEnabled)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Row(
-                        children: [
-                          const Text('Cap'),
-                          Expanded(
-                            child: Slider(
-                              value: _cap.toDouble().clamp(0, _max.toDouble()),
-                              min: 0,
-                              max: _max.toDouble(),
-                              divisions: _max,
-                              label: '$_cap',
-                              onChanged: (v) =>
-                                  setState(() => _cap = v.round()),
-                              onChangeEnd: (v) async {
-                                await AgentBridge.setCap(v.round());
-                                await _refresh();
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '10kHz+ warn threshold',
-                      style: theme.textTheme.labelLarge,
-                    ),
-                    Text(
-                      '${_threshold.toStringAsFixed(0)} dBFS  (higher = less sensitive)',
-                      style: theme.textTheme.bodySmall,
-                    ),
-                    Slider(
-                      value: _threshold.clamp(-90, 0),
-                      min: -90,
-                      max: 0,
-                      divisions: 90,
-                      label: _threshold.toStringAsFixed(0),
-                      onChanged: (v) => setState(() => _threshold = v),
-                      onChangeEnd: (v) async {
-                        await AgentBridge.setThreshold(v);
-                        await _refresh();
-                      },
-                    ),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            icon: const Icon(Icons.hearing),
-                            label: const Text('Test check'),
-                            onPressed: _busy
-                                ? null
-                                : () async {
-                                    final messenger = ScaffoldMessenger.of(
-                                      context,
-                                    );
-                                    final r = await AgentBridge.check();
-                                    if (!mounted) return;
-                                    final band =
-                                        (r['band10k'] as num?)?.toDouble() ??
-                                        -999;
-                                    final warned =
-                                        (r['warned'] ?? false) as bool;
-                                    messenger.showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          'band ${band.toStringAsFixed(1)} dBFS · warned=$warned',
-                                        ),
-                                      ),
-                                    );
-                                  },
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: FilledButton.icon(
-                            icon: const Icon(Icons.notifications_active),
-                            label: const Text('Test warn'),
-                            onPressed: _busy ? null : () => AgentBridge.warn(),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            _reachableCard(theme),
+            _detectionCard(theme),
+            _capCard(),
             Card(
               child: ListTile(
                 leading: const Icon(Icons.battery_saver),
@@ -271,4 +128,142 @@ class _AgentScreenState extends State<AgentScreen> {
       ),
     );
   }
+
+  Widget _reachableCard(ThemeData theme) => Card(
+    child: Padding(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Reachable at', style: theme.textTheme.labelLarge),
+          const SizedBox(height: 4),
+          if (_ips.isEmpty)
+            const Text('No network address')
+          else
+            ..._ips.map(
+              (ip) => SelectableText(
+                'http://$ip:$_port',
+                style: theme.textTheme.bodyMedium,
+              ),
+            ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(
+                _micReady ? Icons.mic : Icons.mic_off,
+                size: 18,
+                color: _micReady ? Colors.green : theme.colorScheme.error,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  _micReady
+                      ? 'Mic ready for remote checks'
+                      : 'Mic not ready — toggle agent while app is open',
+                  style: theme.textTheme.bodySmall,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    ),
+  );
+
+  Widget _detectionCard(ThemeData theme) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            LiveSpectrum(minHz: _minHz, maxHz: _maxHz, threshold: _threshold),
+            const SizedBox(height: 8),
+            Text(
+              'Watch band: ${(_minHz / 1000).toStringAsFixed(1)}–${(_maxHz / 1000).toStringAsFixed(1)} kHz',
+              style: theme.textTheme.labelLarge,
+            ),
+            RangeSlider(
+              values: RangeValues(_minHz.toDouble(), _maxHz.toDouble()),
+              min: 0,
+              max: 22050,
+              divisions: 44,
+              labels: RangeLabels(
+                '${(_minHz / 1000).toStringAsFixed(1)}k',
+                '${(_maxHz / 1000).toStringAsFixed(1)}k',
+              ),
+              onChanged: (v) => setState(() {
+                _minHz = v.start.round();
+                _maxHz = v.end.round();
+              }),
+              onChangeEnd: (v) =>
+                  AgentBridge.setBand(v.start.round(), v.end.round()),
+            ),
+            Text(
+              'Warn threshold: ${_threshold.toStringAsFixed(0)} dBFS  (higher = louder needed)',
+              style: theme.textTheme.labelLarge,
+            ),
+            Slider(
+              value: _threshold.clamp(-100, 0),
+              min: -100,
+              max: 0,
+              divisions: 100,
+              label: _threshold.toStringAsFixed(0),
+              onChanged: (v) => setState(() => _threshold = v),
+              onChangeEnd: (v) => AgentBridge.setThreshold(v),
+            ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: FilledButton.icon(
+                icon: const Icon(Icons.notifications_active),
+                label: const Text('Test warn'),
+                onPressed: () => AgentBridge.warn(),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _capCard() => Card(
+    child: Column(
+      children: [
+        SwitchListTile(
+          title: const Text('Auto-cap volume'),
+          subtitle: Text('Ceiling: $_cap / $_max'),
+          value: _capEnabled,
+          onChanged: _busy
+              ? null
+              : (v) async {
+                  await AgentBridge.setCapEnabled(v);
+                  await _refresh();
+                },
+        ),
+        if (_capEnabled)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(
+              children: [
+                const Text('Cap'),
+                Expanded(
+                  child: Slider(
+                    value: _cap.toDouble().clamp(0, _max.toDouble()),
+                    min: 0,
+                    max: _max.toDouble(),
+                    divisions: _max,
+                    label: '$_cap',
+                    onChanged: (v) => setState(() => _cap = v.round()),
+                    onChangeEnd: (v) async {
+                      await AgentBridge.setCap(v.round());
+                      await _refresh();
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    ),
+  );
 }

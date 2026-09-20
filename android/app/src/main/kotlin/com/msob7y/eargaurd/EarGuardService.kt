@@ -54,13 +54,17 @@ class EarGuardService : Service() {
         if (Prefs.capEnabled(this)) engine.enforceCap(Prefs.cap(this))
     }
 
+    fun analyze(): Analysis? {
+        if (!micReady) return null
+        return engine.analyze(Prefs.minHz(this), Prefs.maxHz(this))
+    }
+
     fun checkAndWarn(): Triple<Double, Double, Boolean> {
-        if (!micReady) return Triple(-999.0, Prefs.threshold(this).toDouble(), false)
-        val band = engine.captureBand10kDbfs()
         val threshold = Prefs.threshold(this).toDouble()
-        val warned = band > threshold && band > -900
+        val a = analyze() ?: return Triple(-999.0, threshold, false)
+        val warned = a.bandPeakDb > threshold
         if (warned) engine.playWarning()
-        return Triple(band, threshold, warned)
+        return Triple(a.bandPeakDb, threshold, warned)
     }
 
     private fun startServer() {

@@ -18,7 +18,7 @@ class _DeviceCardState extends State<DeviceCard> {
 
   DeviceStatus? _status;
   bool _loading = false;
-  bool _busy = false;
+  bool _checking = false;
   String? _error;
 
   @override
@@ -42,38 +42,42 @@ class _DeviceCardState extends State<DeviceCard> {
     }
   }
 
-  Future<void> _run(Future<DeviceStatus> Function() action) async {
-    if (_busy) return;
-    setState(() => _busy = true);
+  Future<void> _apply(
+    DeviceStatus optimistic,
+    Future<DeviceStatus> Function() call,
+  ) async {
+    setState(() => _status = optimistic);
     try {
-      final s = await action();
+      final s = await call();
       if (mounted) setState(() => _status = s);
     } catch (e) {
-      if (mounted) setState(() => _error = 'Command failed');
-    } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        _snack('Command failed');
+        _load();
+      }
     }
   }
 
   Future<void> _check() async {
-    if (_busy) return;
-    setState(() => _busy = true);
+    if (_checking) return;
+    setState(() => _checking = true);
     try {
       final r = await _api.check();
       if (!mounted) return;
       final micReady = (r['micReady'] ?? false) as bool;
       final warned = (r['warned'] ?? false) as bool;
       final band = (r['band10k'] as num?)?.toDouble() ?? -999;
-      final msg = !micReady
-          ? 'Mic not ready — open EarGuard on that device once'
-          : warned
-          ? 'Warning played · 10k band ${band.toStringAsFixed(1)} dBFS'
-          : 'OK · 10k band ${band.toStringAsFixed(1)} dBFS';
-      _snack(msg);
+      _snack(
+        !micReady
+            ? 'Mic not ready — open EarGuard on that device once'
+            : warned
+            ? 'Warning played · peak ${band.toStringAsFixed(1)} dBFS'
+            : 'OK · peak ${band.toStringAsFixed(1)} dBFS',
+      );
     } catch (e) {
       _snack('Check failed');
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) setState(() => _checking = false);
     }
   }
 
@@ -121,7 +125,7 @@ class _DeviceCardState extends State<DeviceCard> {
                     ],
                   ),
                 ),
-                if (_loading || _busy)
+                if (_loading)
                   const SizedBox(
                     width: 18,
                     height: 18,
@@ -167,7 +171,10 @@ class _DeviceCardState extends State<DeviceCard> {
                 children: [
                   IconButton.filledTonal(
                     icon: const Icon(Icons.remove),
-                    onPressed: _busy ? null : () => _run(() => _api.step(-1)),
+                    onPressed: () => _apply(
+                      s.copyWith(volume: (s.volume - 1).clamp(0, s.max)),
+                      () => _api.step(-1),
+                    ),
                   ),
                   Expanded(
                     child: Slider(
@@ -176,25 +183,21 @@ class _DeviceCardState extends State<DeviceCard> {
                       max: s.max.toDouble(),
                       divisions: s.max,
                       label: '${s.volume}',
-                      onChanged: _busy
-                          ? null
-                          : (v) => setState(
-                              () => _status = DeviceStatus(
-                                volume: v.round(),
-                                max: s.max,
-                                cap: s.cap,
-                                capEnabled: s.capEnabled,
-                                threshold: s.threshold,
-                                micReady: s.micReady,
-                                name: s.name,
-                              ),
-                            ),
-                      onChangeEnd: (v) => _run(() => _api.setVolume(v.round())),
+                      onChanged: (v) => setState(
+                        () => _status = s.copyWith(volume: v.round()),
+                      ),
+                      onChangeEnd: (v) => _apply(
+                        s.copyWith(volume: v.round()),
+                        () => _api.setVolume(v.round()),
+                      ),
                     ),
                   ),
                   IconButton.filledTonal(
                     icon: const Icon(Icons.add),
-                    onPressed: _busy ? null : () => _run(() => _api.step(1)),
+                    onPressed: () => _apply(
+                      s.copyWith(volume: (s.volume + 1).clamp(0, s.max)),
+                      () => _api.step(1),
+                    ),
                   ),
                 ],
               ),
@@ -205,9 +208,10 @@ class _DeviceCardState extends State<DeviceCard> {
                 title: const Text('Auto-cap volume'),
                 subtitle: Text('Ceiling: ${s.cap}'),
                 value: s.capEnabled,
-                onChanged: _busy
-                    ? null
-                    : (v) => _run(() => _api.setCapEnabled(v)),
+                onChanged: (v) => _apply(
+                  s.copyWith(capEnabled: v),
+                  () => _api.setCapEnabled(v),
+                ),
               ),
               if (s.capEnabled)
                 Row(
@@ -220,20 +224,13 @@ class _DeviceCardState extends State<DeviceCard> {
                         max: s.max.toDouble(),
                         divisions: s.max,
                         label: '${s.cap}',
-                        onChanged: _busy
-                            ? null
-                            : (v) => setState(
-                                () => _status = DeviceStatus(
-                                  volume: s.volume,
-                                  max: s.max,
-                                  cap: v.round(),
-                                  capEnabled: s.capEnabled,
-                                  threshold: s.threshold,
-                                  micReady: s.micReady,
-                                  name: s.name,
-                                ),
-                              ),
-                        onChangeEnd: (v) => _run(() => _api.setCap(v.round())),
+                        onChanged: (v) => setState(
+                          () => _status = s.copyWith(cap: v.round()),
+                        ),
+                        onChangeEnd: (v) => _apply(
+                          s.copyWith(cap: v.round()),
+                          () => _api.setCap(v.round()),
+                        ),
                       ),
                     ),
                   ],
@@ -243,9 +240,15 @@ class _DeviceCardState extends State<DeviceCard> {
                 children: [
                   Expanded(
                     child: OutlinedButton.icon(
-                      icon: const Icon(Icons.hearing),
+                      icon: _checking
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.hearing),
                       label: const Text('Check'),
-                      onPressed: _busy ? null : _check,
+                      onPressed: _checking ? null : _check,
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -253,12 +256,7 @@ class _DeviceCardState extends State<DeviceCard> {
                     child: FilledButton.icon(
                       icon: const Icon(Icons.notifications_active),
                       label: const Text('Warn'),
-                      onPressed: _busy
-                          ? null
-                          : () => _run(() async {
-                              await _api.warn();
-                              return s;
-                            }),
+                      onPressed: () => _api.warn(),
                     ),
                   ),
                 ],
