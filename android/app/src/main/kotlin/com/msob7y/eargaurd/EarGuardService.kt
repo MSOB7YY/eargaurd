@@ -23,6 +23,7 @@ import fi.iki.elonen.NanoHTTPD
 class EarGuardService : Service() {
 
     private lateinit var engine: AudioEngine
+    private lateinit var wakePolicy: WakePolicy
     private var server: ApiServer? = null
     private var nsd: NsdAdvertiser? = null
     private var capObserver: ContentObserver? = null
@@ -31,15 +32,21 @@ class EarGuardService : Service() {
     @Volatile var micReady: Boolean = false
         private set
 
+    val isAwake: Boolean get() = wakePolicy.isAwake
+
     override fun onCreate() {
         super.onCreate()
         instance = this
         engine = AudioEngine(applicationContext)
+        wakePolicy = WakePolicy(this)
         createChannel()
         startServer()
         registerCapObserver()
         registerNetworkCallback()
+        wakePolicy.apply()
     }
+
+    fun applyWakePolicy() = wakePolicy.apply()
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Prefs.setAgentEnabled(this, true)
@@ -149,6 +156,7 @@ class EarGuardService : Service() {
     private fun serviceName(): String = "EarGuard-${Build.MODEL}"
 
     override fun onDestroy() {
+        wakePolicy.release()
         try { server?.stop() } catch (_: Exception) {}
         nsd?.unregister()
         capObserver?.let { contentResolver.unregisterContentObserver(it) }
@@ -174,5 +182,14 @@ class EarGuardService : Service() {
         const val EXTRA_FROM_UI = "from_ui"
 
         fun isRunning() = instance != null
+
+        fun startIfEnabled(context: Context) {
+            if (!Prefs.agentEnabled(context)) return
+            val intent = Intent(context, EarGuardService::class.java)
+            try {
+                context.startForegroundService(intent)
+            } catch (_: Exception) {
+            }
+        }
     }
 }

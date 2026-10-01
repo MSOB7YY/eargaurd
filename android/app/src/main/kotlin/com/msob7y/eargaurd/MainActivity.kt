@@ -67,6 +67,15 @@ class MainActivity : FlutterActivity() {
                         result.success(statusMap(engine))
                     }
 
+                    "setReachability" -> {
+                        val shouldStayReachable = call.argument<Boolean>("shouldStayReachable") ?: true
+                        val startMinute = call.argument<Int>("startMinute") ?: Prefs.DEFAULT_ACTIVE_START_MINUTE
+                        val endMinute = call.argument<Int>("endMinute") ?: Prefs.DEFAULT_ACTIVE_END_MINUTE
+                        Prefs.setReachability(this, shouldStayReachable, startMinute, endMinute)
+                        EarGuardService.instance?.applyWakePolicy()
+                        result.success(statusMap(engine))
+                    }
+
                     "setBand" -> {
                         Prefs.setMinHz(this, call.argument<Int>("minHz") ?: 8000)
                         Prefs.setMaxHz(this, call.argument<Int>("maxHz") ?: 20000)
@@ -130,17 +139,27 @@ class MainActivity : FlutterActivity() {
             }
     }
 
-    private fun statusMap(engine: AudioEngine): Map<String, Any> = mapOf(
-        "volume" to engine.currentVolume(),
-        "max" to engine.maxVolume(),
-        "cap" to Prefs.cap(this),
-        "capEnabled" to Prefs.capEnabled(this),
-        "threshold" to Prefs.threshold(this).toDouble(),
-        "minHz" to Prefs.minHz(this),
-        "maxHz" to Prefs.maxHz(this),
-        "running" to EarGuardService.isRunning(),
-        "micReady" to (EarGuardService.instance?.micReady ?: false),
-    )
+    private fun statusMap(engine: AudioEngine): Map<String, Any> {
+        val service = EarGuardService.instance
+        val isRunning = service != null
+        val isMicReady = service?.micReady ?: false
+        val isAwake = service?.isAwake ?: false
+        return mapOf(
+            "volume" to engine.currentVolume(),
+            "max" to engine.maxVolume(),
+            "cap" to Prefs.cap(this),
+            "capEnabled" to Prefs.capEnabled(this),
+            "threshold" to Prefs.threshold(this).toDouble(),
+            "minHz" to Prefs.minHz(this),
+            "maxHz" to Prefs.maxHz(this),
+            "running" to isRunning,
+            "micReady" to isMicReady,
+            "shouldStayReachable" to Prefs.shouldStayReachable(this),
+            "activeStartMinute" to Prefs.activeStartMinuteOfDay(this),
+            "activeEndMinute" to Prefs.activeEndMinuteOfDay(this),
+            "isAwake" to isAwake,
+        )
+    }
 
     private fun requestBatteryExemption() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {

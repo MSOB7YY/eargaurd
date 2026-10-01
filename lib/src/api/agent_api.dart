@@ -23,44 +23,32 @@ class AgentApi {
   }
 
   Future<DeviceStatus> setVolume(int level) async {
-    final r = await http
-        .post(Uri.parse('$base/volume?level=$level'))
-        .timeout(_timeout);
+    final r = await http.post(Uri.parse('$base/volume?level=$level')).timeout(_timeout);
     return _statusFrom(r);
   }
 
   Future<DeviceStatus> step(int delta) async {
-    final r = await http
-        .post(Uri.parse('$base/volume/step?delta=$delta'))
-        .timeout(_timeout);
+    final r = await http.post(Uri.parse('$base/volume/step?delta=$delta')).timeout(_timeout);
     return _statusFrom(r);
   }
 
   Future<DeviceStatus> setCap(int level) async {
-    final r = await http
-        .post(Uri.parse('$base/cap?level=$level'))
-        .timeout(_timeout);
+    final r = await http.post(Uri.parse('$base/cap?level=$level')).timeout(_timeout);
     return _statusFrom(r);
   }
 
   Future<DeviceStatus> setCapEnabled(bool on) async {
-    final r = await http
-        .post(Uri.parse('$base/cap/enable?on=$on'))
-        .timeout(_timeout);
+    final r = await http.post(Uri.parse('$base/cap/enable?on=$on')).timeout(_timeout);
     return _statusFrom(r);
   }
 
   Future<DeviceStatus> setThreshold(double value) async {
-    final r = await http
-        .post(Uri.parse('$base/threshold?value=$value'))
-        .timeout(_timeout);
+    final r = await http.post(Uri.parse('$base/threshold?value=$value')).timeout(_timeout);
     return _statusFrom(r);
   }
 
   Future<DeviceStatus> setBand(int minHz, int maxHz) async {
-    final r = await http
-        .post(Uri.parse('$base/band?minHz=$minHz&maxHz=$maxHz'))
-        .timeout(_timeout);
+    final r = await http.post(Uri.parse('$base/band?minHz=$minHz&maxHz=$maxHz')).timeout(_timeout);
     return _statusFrom(r);
   }
 
@@ -69,9 +57,7 @@ class AgentApi {
   }
 
   Future<Analysis> analyze() async {
-    final r = await http
-        .post(Uri.parse('$base/analyze'))
-        .timeout(_checkTimeout);
+    final r = await http.post(Uri.parse('$base/analyze')).timeout(_checkTimeout);
     return Analysis.fromMap(jsonDecode(r.body) as Map<String, dynamic>);
   }
 

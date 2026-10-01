@@ -87,8 +87,7 @@ class _SpectrumPainter extends CustomPainter {
     final nyquist = a?.nyquist ?? 22050;
 
     double xForHz(double hz) => plotLeft + (hz / nyquist).clamp(0, 1) * plotW;
-    double yForDb(double db) =>
-        plotTop + (1 - ((db - floorDb) / (0 - floorDb)).clamp(0, 1)) * plotH;
+    double yForDb(double db) => plotTop + (1 - ((db - floorDb) / (0 - floorDb)).clamp(0, 1)) * plotH;
 
     final gridPaint = Paint()
       ..color = axis.withValues(alpha: 0.25)
@@ -189,9 +188,5 @@ class _SpectrumPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_SpectrumPainter old) =>
-      old.analysis != analysis ||
-      old.minHz != minHz ||
-      old.maxHz != maxHz ||
-      old.threshold != threshold;
+  bool shouldRepaint(_SpectrumPainter old) => old.analysis != analysis || old.minHz != minHz || old.maxHz != maxHz || old.threshold != threshold;
 }

@@ -29,9 +29,7 @@ class DiscoveryController extends ChangeNotifier {
     for (final s in _discovery?.services ?? const <nsd.Service>[]) {
       final port = s.port;
       if (port == null) continue;
-      final host = (s.addresses != null && s.addresses!.isNotEmpty)
-          ? s.addresses!.first.address
-          : s.host;
+      final host = (s.addresses != null && s.addresses!.isNotEmpty) ? s.addresses!.first.address : s.host;
       if (host == null || host.isEmpty) continue;
       final d = Device(name: s.name ?? 'EarGuard', host: host, port: port);
       _found[d.id] = d;

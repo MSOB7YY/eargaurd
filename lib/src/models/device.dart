@@ -33,18 +33,17 @@ class DeviceStatus {
     name: j['name'] as String?,
   );
 
-  DeviceStatus copyWith({int? volume, int? cap, bool? capEnabled}) =>
-      DeviceStatus(
-        volume: volume ?? this.volume,
-        max: max,
-        cap: cap ?? this.cap,
-        capEnabled: capEnabled ?? this.capEnabled,
-        threshold: threshold,
-        minHz: minHz,
-        maxHz: maxHz,
-        micReady: micReady,
-        name: name,
-      );
+  DeviceStatus copyWith({int? volume, int? cap, bool? capEnabled}) => DeviceStatus(
+    volume: volume ?? this.volume,
+    max: max,
+    cap: cap ?? this.cap,
+    capEnabled: capEnabled ?? this.capEnabled,
+    threshold: threshold,
+    minHz: minHz,
+    maxHz: maxHz,
+    micReady: micReady,
+    name: name,
+  );
 }
 
 class Device {

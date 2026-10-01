@@ -6,11 +6,6 @@ import android.content.Intent
 
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
-        if (!Prefs.agentEnabled(context)) return
-        val i = Intent(context, EarGuardService::class.java)
-        try {
-            context.startForegroundService(i)
-        } catch (_: Exception) {
-        }
+        EarGuardService.startIfEnabled(context)
     }
 }

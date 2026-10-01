@@ -52,6 +52,8 @@ falls back to debug signing if absent. **Change the default keystore password.**
 ## Setup notes (agent phones)
 
 - Grant **mic + notification** on first start; tap **Disable battery optimization** so the service survives Doze.
+- **Stay reachable** (on by default) holds a CPU wakelock during active hours (default 10:00–01:00), otherwise
+  the phone sleeps and stops answering requests. Costs some battery; outside the window it sleeps normally.
 - After a reboot the server and volume control run immediately, but the **remote mic check** stays
   disabled until the app is opened once (Android forbids starting a background mic service). The
   agent screen shows a "mic ready" indicator.
